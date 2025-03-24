@@ -149,17 +149,18 @@ module maindec (input  logic [6:0] op,
 		output logic 	   Branch, 
     output logic [1:0] ALUSrc,
 		output logic 	   RegWrite, Jump,
+		output logic	   MemStrobe, //new fix
 		output logic [2:0] ImmSrc, // fix? [1:0]?
 		output logic [1:0] ALUOp);
    
    logic [12:0] 		   controls; //fix? [10:0]?
    
    assign {RegWrite, ImmSrc, ALUSrc, MemWrite,
-	   ResultSrc, Branch, ALUOp, Jump} = controls;
+	   ResultSrc, Branch, ALUOp, Jump, MemStrobe} = controls;
    
    always_comb // think we are good here?
      case(op) // spitting out warnings on 12 bits but not 13?
-      // RegWrite_ImmSrc_ALUSrc_MemWrite_ResultSrc_Branch_ALUOp_Jump
+      // RegWrite_ImmSrc_ALUSrc_MemWrite_ResultSrc_Branch_ALUOp_Jump_MemStrobe
         7'b0000011: controls = 13'b1_000_01_0_01_0_00_0; // lw
         7'b0100011: controls = 13'b0_001_01_1_00_0_00_0; // sw
         7'b0110011: controls = 13'b1_xxx_00_0_00_0_10_0; // R–type
@@ -263,9 +264,11 @@ module datapath (input  logic        clk, reset,
    logic [31:0] 		     ImmExt;
    logic [31:0] 		     SrcA, SrcB, SrcOut;
    logic [31:0] 		     Result;
+   logic PCReady;
+   assign PCReady = ~MemStrobe;
    // fix muxes
    // next PC logic
-   flopr #(32) pcreg (clk, reset, PCNext, PC);
+	flopr #(32) pcreg (clk, reset, PCReady, PCNext, PC);
    adder  pcadd4 (PC, 32'd4, PCPlus4);
    adder  pcaddbranch (PC, ImmExt, PCTarget);
    // mux2 #(32)  pcmux (PCPlus4, PCTarget, PCSrc, PCNext);
@@ -325,6 +328,7 @@ module flopr #(parameter WIDTH = 8)
    always_ff @(posedge clk, posedge reset)
      if (reset) q <= 0;
      else  q <= d;
+     else q <= q;
    
 endmodule // flopr
 
